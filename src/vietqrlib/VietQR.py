@@ -146,24 +146,24 @@ def _build_tag64(lang_ref="", local_merchant_name="", local_merchant_city=""):
     ]).toString()
 
 
-def _build_tag3801( acq="", mid="", service_code="QRPUSH"):
+def _build_tag3801( acq="", mid=""):
     return TLVlist([
         TLV("00", "Acquier ID/BNB ID", 6, presenseType="M", value=acq),
         TLV("01", "Merchant ID/Consumer ID", 19, isFixedLength=False, presenseType="M", value=mid),
-        TLV("02", "Service Code", 10, isFixedLength=False, presenseType="C", value=service_code),
-        # - QRPUSH: Product payment service by QR
-        # - QRCASH: Cash withdrawal service at ATM by QR
-        # - QRIBFTTC: Inter-Bank Fund Transfer 24/7 to Card service by QR
-        # - QRIBFTTA: Inter-Bank Fund Transfer 24/7 to Account service by QR
-    ])
+    ]).toString()
 
 
 def _build_tag38(acq="", mid="", service_code="QRPUSH"):
+    # - QRPUSH: Product payment service by QR
+    # - QRCASH: Cash withdrawal service at ATM by QR
+    # - QRIBFTTC: Inter-Bank Fund Transfer 24/7 to Card service by QR
+    # - QRIBFTTA: Inter-Bank Fund Transfer 24/7 to Account service by QR
     return TLVlist([
         TLV("00", "Global Unique Identifier - GUID", 32, isFixedLength=False, presenseType="M", value="A000000727"),
         TLV("01", "Payment network specific (Member banks, Payment Intermediaries)", 32, isFixedLength=False,
-            presenseType="M", value=_build_tag3801(acq, mid, service_code).toString()),
-    ])
+            presenseType="M", value=_build_tag3801(acq, mid)),
+        TLV("02", "Service Code", 10, isFixedLength=False, presenseType="C", value=service_code),
+    ]).toString()
 
 
 def get_crc16( data="", last4char=True) -> str:
@@ -223,7 +223,7 @@ def genQRString(qrType="12", merchant_category="5812", merchant_name="_",
         # “11” = Static QR ; “12” = Dynamic QR
         # tag 2 to 51 is used for payment service, tag [38] is used for QR code service on NAPAS system
         TLV("38", "VietQR service", 99, isFixedLength=False, presenseType="M",
-            value=_build_tag38(acq, merchant_id, service_code).toString()),
+            value=_build_tag38(acq, merchant_id, service_code)),
         TLV("52", "Merchant Category Code", 4, presenseType="M", value=merchant_category),
         TLV("53", "Transaction Currency", 3, presenseType="M", value=currency),
         TLV("54", "Transaction Amount", 13, isFixedLength=False, presenseType="C", value=amount),
@@ -243,11 +243,11 @@ def genQRString(qrType="12", merchant_category="5812", merchant_name="_",
         TLV("61", "Postal Code", 10, isFixedLength=False, presenseType="O", value=postal_code),
         TLV("62", "Additional Data Field Template", 99, isFixedLength=False, presenseType="O",
             value=_build_tag62(bill_number, mobile_number, store_label, loyalty_number, ref_label,
-                                   customer_label,
-                                   terminal_label, purpose_txn, additional_data)),
+                               customer_label,
+                               terminal_label, purpose_txn, additional_data)),
         TLV("64", "Merchant Information - Language Template", 99, isFixedLength=False, presenseType="O",
             value=_build_tag64(lang_ref=lang_ref, local_merchant_city=local_merchant_city,
-                                   local_merchant_name=local_merchant_name))
+                               local_merchant_name=local_merchant_name))
     ])
 
     # TODO: Testing area for ATOM POS connection
