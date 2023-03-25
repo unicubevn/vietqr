@@ -4,7 +4,7 @@ This is a VietQR generation library.
 
 This library will help you to generate the VietQR Data String which align with VietQR Specification announced on 05/10/2022
 ## VietQR Library specification:
-- **Generation function:** `VietQR.genQRString(qrType, merchant_category, merchant_name,
+- **Generation function:** `VietQR.genQRString(is_dynamic_qr, merchant_category, merchant_name,
   merchant_city,
   postal_code, currency, country_code, amount,
   acq, merchant_id, service_code,
@@ -13,9 +13,9 @@ This library will help you to generate the VietQR Data String which align with V
   lang_ref, local_merchant_name, local_merchant_city, uuid,
   ipn_url, app_package_name)`
 - **The detail variables:**
-  -  `qrType`: 
-      - '11' for static QR
-      - '12' for dynamic QR
+  -  `is_dynamic_qr`: 
+      - 'False' for static QR
+      - 'True' for dynamic QR
   - `merchant_category`: defined by ISO 18245 and assigned by Payment Instituation.
   - `postal_code`: Postal code, **Ex**: postcode = 70000 for Vietnam
   - `currency`: defined by ISO 4217, for Vietnam: `currency = 704`

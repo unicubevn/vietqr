@@ -1,5 +1,8 @@
 from typing import List
 
+from . import constants
+from .main import QRCode
+
 bankcode = {
     "ABB": "970425",
     "ACB": "970416",
@@ -175,7 +178,7 @@ def getBincode(bank="") -> str:
     return bankcode[bank]
 
 
-def genQRString(qrType="12", merchant_category="5812", merchant_name="_",
+def genQRString(is_dynamic_qr:bool=False, merchant_category="5812", merchant_name="_",
                 merchant_city="HO CHI MINH",
                 postal_code="", currency="704", country_code="VN", amount="0",
                 acq="", merchant_id="04719238105", service_code="QRPUSH",
@@ -186,7 +189,7 @@ def genQRString(qrType="12", merchant_category="5812", merchant_name="_",
     """Generate VietQR Data String
 
     Keyword arguments: argument -- description
-        @qrType             -- The Type of QR: '12' value is Dynamic QR,'11' value is Static QR \n
+        @is_dynamic_qr        -- The Type of QR: "True" is Dynamic QR, "False" is Static QR
         @merchant_category  -- For Tag 52: Merchant Category \n
         @merchant_name      -- For Tag 59: Merchant Name \n
         @merchant_city      -- For Tag 60: Merchant City \n
@@ -216,6 +219,7 @@ def genQRString(qrType="12", merchant_category="5812", merchant_name="_",
     Return: return_description
         @result -- The VietQR Data String
     """
+    qrType = "12" if is_dynamic_qr else "11"
     data = TLVlist([
         TLV("00", "Payload Format Indicator", 2, presenseType="M", value="01"),
         # presenseType can be "M", "O", "C"
@@ -274,3 +278,34 @@ def genQRString(qrType="12", merchant_category="5812", merchant_name="_",
     print(f"Str to CRC: {semi_vietQR}6304 \nCRC Value: {crc_value}")
 
     return f"{semi_vietQR}6304{crc_value}"
+
+
+def genVietQR(is_dynamic_qr:bool=False, merchant_category="5812", merchant_name="_",
+              merchant_city="HO CHI MINH",
+              postal_code="", currency="704", country_code="VN", amount="0",
+              acq="", merchant_id="04719238105", service_code="QRPUSH",
+              bill_number="", mobile_number="", store_label="", loyalty_number="",
+              ref_label="", customer_label="", terminal_label="", purpose_txn="", additional_data="",
+              lang_ref="", local_merchant_name="", local_merchant_city="", uuid="",
+              ipn_url="", app_package_name=""):
+    vietQRstr = genQRString(is_dynamic_qr=is_dynamic_qr, merchant_category=merchant_category, merchant_name=merchant_name,
+                            merchant_city=merchant_city,
+                            postal_code=postal_code, currency=currency, country_code=country_code, amount=amount,
+                            acq=acq, merchant_id=merchant_id, service_code=service_code,
+                            bill_number=bill_number, mobile_number=mobile_number, store_label=store_label,
+                            loyalty_number=loyalty_number,
+                            ref_label=ref_label, customer_label=customer_label, terminal_label=terminal_label,
+                            purpose_txn=purpose_txn, additional_data=additional_data,
+                            lang_ref=lang_ref, local_merchant_name=local_merchant_name,
+                            local_merchant_city=local_merchant_city, uuid=uuid,
+                            ipn_url=ipn_url, app_package_name=app_package_name)
+    qr = QRCode(
+        version=1,
+        error_correction=constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(vietQRstr)
+    qr.make(fit=True)
+
+    return qr.make_image(fill_color="black", back_color="white")
