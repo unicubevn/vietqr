@@ -1,10 +1,10 @@
 Metadata-Version: 2.1
 Name: vietqr-generator
-Version: 0.0.2
+Version: 0.0.4
 Summary: This is the VietQR library which help to generate the VietQR Data String, which align with VietQR specifications. (The current VietQR Specification was announced by Napas on 21 Apr 2021)
-Author-email: Jean Nguyen <community@thebeanfamily.org>
-Project-URL: Homepage, https://github.com/beanfamily/vietqr
-Project-URL: Bug Tracker, https://github.com/beanfamily/vietqr/issues
+Author-email: Jean Nguyen <community@unicube.me>
+Project-URL: Homepage, https://github.com/unicubevn/vietqr
+Project-URL: Bug Tracker, https://github.com/unicubevn/vietqr/issues
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -13,6 +13,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: qrcode[pil]
 
 # VietQR Generation Library
 

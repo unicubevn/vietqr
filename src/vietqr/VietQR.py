@@ -1,7 +1,6 @@
 from typing import List
 
-from . import constants
-from .main import QRCode
+import qrcode
 
 bankcode = {
     "ABB": "970425",
@@ -299,13 +298,12 @@ def genVietQR(is_dynamic_qr:bool=False, merchant_category="5812", merchant_name=
                             lang_ref=lang_ref, local_merchant_name=local_merchant_name,
                             local_merchant_city=local_merchant_city, uuid=uuid,
                             ipn_url=ipn_url, app_package_name=app_package_name)
-    qr = QRCode(
+    qr = qrcode.main.QRCode(
         version=1,
-        error_correction=constants.ERROR_CORRECT_L,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
         box_size=10,
         border=4,
     )
     qr.add_data(vietQRstr)
     qr.make(fit=True)
-
     return qr.make_image(fill_color="black", back_color="white")

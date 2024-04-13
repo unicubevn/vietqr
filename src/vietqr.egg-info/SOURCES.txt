@@ -1,9 +1,0 @@
-LICENSE
-README.md
-pyproject.toml
-src/vietqr.egg-info/PKG-INFO
-src/vietqr.egg-info/SOURCES.txt
-src/vietqr.egg-info/dependency_links.txt
-src/vietqr.egg-info/top_level.txt
-src/vietqrlib/VietQR.py
-src/vietqrlib/__init__.py
