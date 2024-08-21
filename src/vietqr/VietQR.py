@@ -1,8 +1,9 @@
-from typing import List
-
 import qrcode
+import logging
 
-bankcode = {
+_logger = logging.getLogger(__name__)
+
+BANK_CODE = {
     "ABB": "970425",
     "ACB": "970416",
     "AGRI": "970405",
@@ -47,31 +48,78 @@ bankcode = {
 
 
 class TLV:
-    def __init__(self, tag="", name="", length=0, isFixedLength=True, presenseType="O", value=""):
-        self.tag = tag
-        self.name = name
-        if isFixedLength:
-            self.length = f"0{length}" if length < 10 else length
+    tag = ""
+    name = ""
+    length = ""
+    value = ""
+
+    def __init__(self, tag: str, name: str, length: str, value: any, is_fixed_length=True,
+                 present_type="O"):
+        self.tag = tag or ""
+        self.name = name or ""
+        if is_fixed_length:
+            self.length = f"0{length}" if int(length) < 10 else str(length)
         else:
-            self.length = f"0{len(value)}" if len(value) < 10 else len(value)
-        self.presenseType = presenseType
+            self.get_value_length()
+        self.present_type = present_type
         self.value = value
 
+    def get_value(self):
+        return self.value
 
-    def toString(self):
+    def get_value_length(self):
+        if type(self.get_value()) is str:
+            self.length = f"0{len(self.value)}" if len(self.value) < 10 else str(len(self.value))
+        if type(self.get_value()) is TlvList:
+            self.length = len(self.value.to_string())
+        return self.length
+
+    def set_value(self, value):
+        self.value = value
+
+    def to_string(self):
         return f"{self.tag}{self.length}{self.value}"
 
-class TLVlist:
-    def __init__(self, tlv_array: List[TLV]):
+
+class TlvList:
+    def __init__(self, tlv_array: list[TLV]):
         self.tlv_array = tlv_array
 
-    def toString(self):
+    def __getitem__(self, item):
+        return self.tlv_array[item]
+
+    def get_tlv(self, tag: str) -> TLV:
+        for index, element in enumerate(self):
+            if element.tag == tag:
+                return element
+
+    def get_tlv_index(self, tag: str) -> TLV:
+        for index, element in enumerate(self):
+            if element.tag == tag:
+                return index
+
+    def get_subtag_value(self, tag: str, sub_tag: str) -> str:
+        tag_tlv = self.get_tlv(tag)
+        _logger.debug(type(tag_tlv.value))
+        if type(tag_tlv.value) is TlvList:
+            return tag_tlv.value.get_tlv(sub_tag).value
+        else:
+            return False
+
+    def set_subtag_value(self, tag: str, sub_tag: str, value: str | list[TLV]) -> str:
+        tag_tlv = self.get_tlv(tag)
+        _logger.debug(type(tag_tlv.value))
+        if type(tag_tlv.value) is TlvList:
+            tag_tlv.value.get_tlv(sub_tag).value = value
+
+    def to_string(self) -> str:
         build_str = ""
         for tlv in self.tlv_array:
-            # print(f"Condition 1: {len(tlv.value) >0} - Condition 2: {tlv.tag == '63'}")
-            if len(tlv.value) > 0:
-                build_str = f"{build_str}{tlv.toString()}"
+            # _logger.debug(f"Condition 1: {len(tlv.value) >0} - Condition 2: {tlv.tag == '63'}")
+            if int(tlv.get_value_length()) > 0:
+                build_str = f"{build_str}{tlv.to_string()}"
         return build_str
+
 
 def _crc16(data: bytes, last4char=True):
     """
@@ -124,35 +172,35 @@ def _crc16(data: bytes, last4char=True):
 
 def _build_tag62(bill_number="", mobile_number="", store_label="", loyalty_number="",
                  ref_label="", customer_label="", terminal_label="", purpose_txn="", additional_data=""):
-    return TLVlist([
-        TLV("01", "Bill Number", 25, isFixedLength=False, presenseType="C", value=bill_number),
-        TLV("02", "Mobile Number", 25, isFixedLength=False, presenseType="O", value=mobile_number),
-        TLV("03", "Store Label", 25, isFixedLength=False, presenseType="C", value=store_label),
-        TLV("04", "Loyalty Number", 25, isFixedLength=False, presenseType="O", value=loyalty_number),
-        TLV("05", "Reference Label", 25, isFixedLength=False, presenseType="C", value=ref_label),
-        TLV("06", "Customer Label", 25, isFixedLength=False, presenseType="O", value=customer_label),
-        TLV("07", "Terminal Label ", 25, isFixedLength=False, presenseType="C", value=terminal_label),
-        TLV("08", "Purpose of Transaction", 25, isFixedLength=False, presenseType="C", value=purpose_txn),
-        TLV("09", "Additional Consumer Data Request", 3, isFixedLength=False, presenseType="O",
+    return TlvList([
+        TLV("01", "Bill Number", '25', is_fixed_length=False, present_type="C", value=bill_number),
+        TLV("02", "Mobile Number", '25', is_fixed_length=False, present_type="O", value=mobile_number),
+        TLV("03", "Store Label", '25', is_fixed_length=False, present_type="C", value=store_label),
+        TLV("04", "Loyalty Number", '25', is_fixed_length=False, present_type="O", value=loyalty_number),
+        TLV("05", "Reference Label", '25', is_fixed_length=False, present_type="C", value=ref_label),
+        TLV("06", "Customer Label", '25', is_fixed_length=False, present_type="O", value=customer_label),
+        TLV("07", "Terminal Label ", '25', is_fixed_length=False, present_type="C", value=terminal_label),
+        TLV("08", "Purpose of Transaction", '25', is_fixed_length=False, present_type="C", value=purpose_txn),
+        TLV("09", "Additional Consumer Data Request", '3', is_fixed_length=False, present_type="O",
             value=additional_data)
-    ]).toString()
+    ]).to_string()
 
 
 def _build_tag64(lang_ref="", local_merchant_name="", local_merchant_city=""):
-    return TLVlist([
-        TLV("00", "Language Preference", 2, presenseType="M", value=lang_ref),
-        TLV("01", "Merchant Name - Alternate Language", 25, isFixedLength=False, presenseType="M",
+    return TlvList([
+        TLV("00", "Language Preference", '2', present_type="M", value=lang_ref),
+        TLV("01", "Merchant Name - Alternate Language", '25', is_fixed_length=False, present_type="M",
             value=local_merchant_name),
-        TLV("03", "Merchant City - Alternate Language", 15, isFixedLength=False, presenseType="O",
+        TLV("03", "Merchant City - Alternate Language", '15', is_fixed_length=False, present_type="O",
             value=local_merchant_city),
-    ]).toString()
+    ]).to_string()
 
 
-def _build_tag3801( acq="", mid=""):
-    return TLVlist([
-        TLV("00", "Acquier ID/BNB ID", 6, presenseType="M", value=acq),
-        TLV("01", "Merchant ID/Consumer ID", 19, isFixedLength=False, presenseType="M", value=mid),
-    ]).toString()
+def _build_tag3801(acq="", mid=""):
+    return TlvList([
+        TLV("00", "Acquirer ID/BNB ID", '6', present_type="M", value=acq),
+        TLV("01", "Merchant ID/Consumer ID", '19', is_fixed_length=False, present_type="M", value=mid),
+    ]).to_string()
 
 
 def _build_tag38(acq="", mid="", service_code="QRPUSH"):
@@ -160,24 +208,24 @@ def _build_tag38(acq="", mid="", service_code="QRPUSH"):
     # - QRCASH: Cash withdrawal service at ATM by QR
     # - QRIBFTTC: Inter-Bank Fund Transfer 24/7 to Card service by QR
     # - QRIBFTTA: Inter-Bank Fund Transfer 24/7 to Account service by QR
-    return TLVlist([
-        TLV("00", "Global Unique Identifier - GUID", 32, isFixedLength=False, presenseType="M", value="A000000727"),
-        TLV("01", "Payment network specific (Member banks, Payment Intermediaries)", 32, isFixedLength=False,
-            presenseType="M", value=_build_tag3801(acq, mid)),
-        TLV("02", "Service Code", 10, isFixedLength=False, presenseType="C", value=service_code),
-    ]).toString()
+    return TlvList([
+        TLV("00", "Global Unique Identifier - GUID", '32', is_fixed_length=False, present_type="M", value="A000000727"),
+        TLV("01", "Payment network specific (Member banks, Payment Intermediaries)", '32', is_fixed_length=False,
+            present_type="M", value=_build_tag3801(acq, mid)),
+        TLV("02", "Service Code", '10', is_fixed_length=False, present_type="C", value=service_code),
+    ]).to_string()
 
 
-def get_crc16( data="", last4char=True) -> str:
+def get_crc16(data="", last4char=True) -> str:
     string_byte = bytes(data, "UTF-8")
     return _crc16(data=string_byte, last4char=last4char)
 
 
-def getBincode(bank="") -> str:
-    return bankcode[bank]
+def get_bincode(bank="") -> str:
+    return BANK_CODE[bank]
 
 
-def genQRString(is_dynamic_qr:bool=False, merchant_category="5812", merchant_name="_",
+def genQRString(is_dynamic_qr: bool = False, merchant_category="5812", merchant_name="_",
                 merchant_city="HO CHI MINH",
                 postal_code="", currency="704", country_code="VN", amount="0",
                 acq="", merchant_id="04719238105", service_code="QRPUSH",
@@ -197,8 +245,10 @@ def genQRString(is_dynamic_qr:bool=False, merchant_category="5812", merchant_nam
         @country_code       -- For Tag 38: Country Code \n
         @amount             -- For Tag 54: Amount \n
         @acq                -- For Tag 38: Acquirer Bank \n
-        @merchant_id        -- For Tag 38: when use QRPUSH -> input Merchant_ID, when use QRIBFTTA -> merchant bank account, when use QRIBFTTC -> merchant card account \n
-        @service_code       -- For Tag 38: QRPUSH: payment service, QRCASH: ATM service, QRIBFTTA: Napas 24/7 transfer to Bank Account,QRIBFTTC: Napas 24/7 transfer to ATM Card \n
+        @merchant_id        -- For Tag 38: when use QRPUSH -> input Merchant_ID, when use QRIBFTTA 
+                                -> merchant bank account, when use QRIBFTTC -> merchant card account \n
+        @service_code       -- For Tag 38: QRPUSH: payment service, QRCASH: ATM service, QRIBFTTA: 
+                                Napas 24/7 transfer to Bank Account,QRIBFTTC: Napas 24/7 transfer to ATM Card \n
         @bill_number        -- For Tag 62:  Bill number \n
         @mobile_number      -- For Tag 62: Mobile number \n
         @store_label        -- For Tag 62: Store label \n
@@ -218,68 +268,153 @@ def genQRString(is_dynamic_qr:bool=False, merchant_category="5812", merchant_nam
     Return: return_description
         @result -- The VietQR Data String
     """
-    qrType = "12" if is_dynamic_qr else "11"
-    data = TLVlist([
-        TLV("00", "Payload Format Indicator", 2, presenseType="M", value="01"),
-        # presenseType can be "M", "O", "C"
-        TLV("01", "Point of Initiation Method", 2, presenseType="O", value=qrType),
+    qr_type = "12" if is_dynamic_qr else "11"
+    data = TlvList([
+        TLV("00", "Payload Format Indicator", '2', present_type="M", value="01"),
+        # present_type can be "M", "O", "C"
+        TLV("01", "Point of Initiation Method", '2', present_type="O", value=qr_type),
         # “11” = Static QR ; “12” = Dynamic QR
         # tag 2 to 51 is used for payment service, tag [38] is used for QR code service on NAPAS system
-        TLV("38", "VietQR service", 99, isFixedLength=False, presenseType="M",
+        TLV("38", "VietQR service", '99', is_fixed_length=False, present_type="M",
             value=_build_tag38(acq, merchant_id, service_code)),
-        TLV("52", "Merchant Category Code", 4, presenseType="M", value=merchant_category),
-        TLV("53", "Transaction Currency", 3, presenseType="M", value=currency),
-        TLV("54", "Transaction Amount", 13, isFixedLength=False, presenseType="C", value=amount),
+        TLV("52", "Merchant Category Code", '4', present_type="M", value=merchant_category),
+        TLV("53", "Transaction Currency", '3', present_type="M", value=currency),
+        TLV("54", "Transaction Amount", '13', is_fixed_length=False, present_type="C", value=amount),
 
         # avalable value for tag 55:
         #     "01": txn have TIP, the application will show TIP input
         #     "02" txn have fixed Convenience Fee and have to use tag 56
         #     "03" txn have fixed Convenience Fee and have to use tag 57
-        TLV("55", "Tip or Convenience Indicator", 2, presenseType="O"),
-        TLV("56", "Value of Convenience Fee Fixed", 13, isFixedLength=False, presenseType="C"),
+        TLV("55", "Tip or Convenience Indicator", '2', present_type="O", value=""),
+        TLV("56", "Value of Convenience Fee Fixed", '13', is_fixed_length=False, present_type="C", value=""),
         # only accept number [0..9] and "."
-        TLV("57", "Value of Convenience Fee Percentage", 5, isFixedLength=False, presenseType="C"),
+        TLV("57", "Value of Convenience Fee Percentage", '5', is_fixed_length=False, present_type="C", value=""),
         # only values between  “00.01” and “99.99” shall be used.
-        TLV("58", "Country Code", 2, presenseType="M", value=country_code),
-        TLV("59", "Merchant Name", 25, isFixedLength=False, presenseType="M", value=merchant_name),
-        TLV("60", "Merchant City", 15, isFixedLength=False, presenseType="M", value=merchant_city),
-        TLV("61", "Postal Code", 10, isFixedLength=False, presenseType="O", value=postal_code),
-        TLV("62", "Additional Data Field Template", 99, isFixedLength=False, presenseType="O",
+        TLV("58", "Country Code", '2', present_type="M", value=country_code),
+        TLV("59", "Merchant Name", '25', is_fixed_length=False, present_type="M", value=merchant_name),
+        TLV("60", "Merchant City", '15', is_fixed_length=False, present_type="M", value=merchant_city),
+        TLV("61", "Postal Code", '10', is_fixed_length=False, present_type="O", value=postal_code),
+        TLV("62", "Additional Data Field Template", '99', is_fixed_length=False, present_type="O",
             value=_build_tag62(bill_number, mobile_number, store_label, loyalty_number, ref_label,
                                customer_label,
                                terminal_label, purpose_txn, additional_data)),
-        TLV("64", "Merchant Information - Language Template", 99, isFixedLength=False, presenseType="O",
+        TLV("64", "Merchant Information - Language Template", '99', is_fixed_length=False, present_type="O",
             value=_build_tag64(lang_ref=lang_ref, local_merchant_city=local_merchant_city,
                                local_merchant_name=local_merchant_name))
     ])
 
     # TODO: Testing area for ATOM POS connection
-    tag_99 = TLVlist([
-        TLV("00", "Globally Unique Identifier- GUID", 32, isFixedLength=False, presenseType="M",
+    tag_99 = TlvList([
+        TLV("00", "Globally Unique Identifier- GUID", '32', is_fixed_length=False, present_type="M",
             value="A000000727")
     ])
     if len(uuid) > 0:
-        tag_99.tlv_array.append(TLV("01", "UUID", 32, isFixedLength=False, presenseType="O", value=uuid))
+        tag_99.tlv_array.append(TLV("01", "UUID", '32', is_fixed_length=False, present_type="O", value=uuid))
     if len(ipn_url) > 0:
-        tag_99.tlv_array.append(TLV("02", "IPN URl", 32, isFixedLength=False, presenseType="O", value=ipn_url))
+        tag_99.tlv_array.append(TLV("02", "IPN URl", '32', is_fixed_length=False, present_type="O", value=ipn_url))
     if len(app_package_name) > 0:
         tag_99.tlv_array.append(
-            TLV("03", "App Package Name", 32, isFixedLength=False, presenseType="O", value=app_package_name))
+            TLV("03", "App Package Name", '32', is_fixed_length=False, present_type="O", value=app_package_name))
 
-    print(f"count:{len(tag_99.tlv_array)}")
+    _logger.debug(f"count:{len(tag_99.tlv_array)}")
     if len(tag_99.tlv_array) >= 2:
         data.tlv_array.append(
-            TLV("99", "ATOM Data", 99, isFixedLength=False, presenseType="O", value=tag_99.toString()))
+            TLV("99", "ATOM Data", '99', is_fixed_length=False, present_type="O", value=tag_99.to_string()))
 
     # As VietQR Specs, tag 63 is always the last element
-    semi_vietQR = data.toString()
-    crc_value = get_crc16(data=f"{semi_vietQR}6304")
-    print(f"Str to CRC: {semi_vietQR}6304 \nCRC Value: {crc_value}")
-
-    return f"{semi_vietQR}6304{crc_value}"
+    semi_vietqr = data.to_string()
+    crc_value = get_crc16(data=f"{semi_vietqr}6304")
+    return f"{semi_vietqr}6304{crc_value}"
 
 
-def genVietQR(is_dynamic_qr:bool=False, merchant_category="5812", merchant_name="_",
+VIETQR_FORM = TlvList([
+    TLV("00", "Payload Format Indicator", '2', present_type="M", value="01"),
+    # present_type can be "M", "O", "C"
+    TLV("01", "Point of Initiation Method", '2', present_type="O", value="12"),
+    # “11” = Static QR ; “12” = Dynamic QR
+    # tag 2 to 51 is used for payment service, tag [38] is used for QR code service on NAPAS system
+    TLV("38", "VietQR service", '99', is_fixed_length=False, present_type="M",
+        value=TlvList([
+            TLV("00", "Global Unique Identifier - GUID", '32', is_fixed_length=False,
+                present_type="M", value="A000000727"),
+            TLV("01", "Payment network specific (Member banks, Payment Intermediaries) ", '99',
+                is_fixed_length=False, present_type="M", value=TlvList([
+                    TLV("00", "Acquier ID/BNB ID ", '06', is_fixed_length=False,
+                        present_type="M", value=""),
+                    TLV("00", "Merchant ID/Consumer ID  ", '19', is_fixed_length=False,
+                        present_type="M", value=""),
+                ])),
+            TLV("00", "Service Code ", '10', is_fixed_length=False,
+                present_type="C", value="QRIBFTTA"),
+
+        ])),
+    TLV("52", "Merchant Category Code", '4', present_type="M", value=""),
+    TLV("53", "Transaction Currency", '3', present_type="M", value=""),
+    TLV("54", "Transaction Amount", '13', is_fixed_length=False, present_type="C", value=""),
+
+    # avalable value for tag 55:
+    #     "01": txn have TIP, the application will show TIP input
+    #     "02" txn have fixed Convenience Fee and have to use tag 56
+    #     "03" txn have fixed Convenience Fee and have to use tag 57
+    TLV("55", "Tip or Convenience Indicator", '2', present_type="O", value=""),
+    TLV("56", "Value of Convenience Fee Fixed", '13', is_fixed_length=False, present_type="C", value=""),
+    # only accept number [0..9] and "."
+    TLV("57", "Value of Convenience Fee Percentage", '5', is_fixed_length=False, present_type="C", value=""),
+    # only values between  “00.01” and “99.99” shall be used.
+    TLV("58", "Country Code", '2', present_type="M", value=""),
+    TLV("59", "Merchant Name", '25', is_fixed_length=False, present_type="M", value=""),
+    TLV("60", "Merchant City", '15', is_fixed_length=False, present_type="M", value=""),
+    TLV("61", "Postal Code", '10', is_fixed_length=False, present_type="O", value=""),
+    TLV("62", "Additional Data Field Template", '99', is_fixed_length=False, present_type="O",
+        value=TlvList([
+            TLV("01", "Bill Number", '25', is_fixed_length=False, present_type="C", value=""),
+            TLV("02", "Mobile Number ", '25', is_fixed_length=False, present_type="O", value=""),
+            TLV("03", "Store Label ", '25', is_fixed_length=False, present_type="C", value=""),
+            TLV("04", "Loyalty Number ", '25', is_fixed_length=False, present_type="O", value=""),
+            TLV("05", "Reference Label", '25', is_fixed_length=False, present_type="C", value=""),
+            TLV("06", "Customer Label", '25', is_fixed_length=False, present_type="O", value=""),
+            TLV("07", "Terminal Label", '25', is_fixed_length=False, present_type="C", value=""),
+            TLV("08", "Purpose of Transaction ", '25', is_fixed_length=False, present_type="C",
+                value=""),
+            TLV("09", "Additional Consumer Data Request ", '03', is_fixed_length=False,
+                present_type="O", value=""),
+        ])),
+    TLV("64", "Merchant Information - Language Template", '99', is_fixed_length=False, present_type="O",
+        value=[TLV("00", "Language Preference", '02', is_fixed_length=True, present_type="M", value=""),
+               TLV("01", "Merchant Name - Alternate Language", '25', is_fixed_length=False, present_type="O", value=""),
+               TLV("02", "Merchant City - Alternate Language", '25', is_fixed_length=False, present_type="C",
+                   value=""), ]),
+    TLV("63", "CRC", '4', is_fixed_length=True, present_type="M", value="")
+])
+
+
+def decode(
+        vietqr_string: str = "00020101021238620010A00000072701270006970454011899AT00668RCWXA98XQ0208"
+                             "QRIBFTTA53037045405500005802VN62150811Chuyen tien630434A7") -> TlvList:
+    data = VIETQR_FORM
+    i = 0
+    while i > (-1):
+        tag = vietqr_string[:2]
+        length = vietqr_string[2:4]
+        value = vietqr_string[4:int(length) + 4]
+        _logger.debug(f"TLV: {tag} - {length} - {value}")
+        _logger.debug("tag:", data[i].tag)
+        _logger.debug(f"vietqr_string: {vietqr_string}")
+        data.get_tlv(tag).length = int(length)
+        data.get_tlv(tag).value = value
+        vietqr_string = vietqr_string[int(length) + 4:len(vietqr_string)]
+        _logger.debug(f"vietqr_string after: {vietqr_string}")
+        if tag != '63':
+            i = i + 1
+        else:
+            i = -1
+
+    _logger.debug(f"data: {data.to_string()}")
+    _logger.debug(f"{data.get_subtag_value('38', '00')}")
+    return data
+
+
+def genVietQR(is_dynamic_qr: bool = False, merchant_category="5812", merchant_name="_",
               merchant_city="HO CHI MINH",
               postal_code="", currency="704", country_code="VN", amount="0",
               acq="", merchant_id="04719238105", service_code="QRPUSH",
@@ -287,7 +422,8 @@ def genVietQR(is_dynamic_qr:bool=False, merchant_category="5812", merchant_name=
               ref_label="", customer_label="", terminal_label="", purpose_txn="", additional_data="",
               lang_ref="", local_merchant_name="", local_merchant_city="", uuid="",
               ipn_url="", app_package_name=""):
-    vietQRstr = genQRString(is_dynamic_qr=is_dynamic_qr, merchant_category=merchant_category, merchant_name=merchant_name,
+    vietQRstr = genQRString(is_dynamic_qr=is_dynamic_qr, merchant_category=merchant_category,
+                            merchant_name=merchant_name,
                             merchant_city=merchant_city,
                             postal_code=postal_code, currency=currency, country_code=country_code, amount=amount,
                             acq=acq, merchant_id=merchant_id, service_code=service_code,
@@ -307,3 +443,7 @@ def genVietQR(is_dynamic_qr:bool=False, merchant_category="5812", merchant_name=
     qr.add_data(vietQRstr)
     qr.make(fit=True)
     return qr.make_image(fill_color="black", back_color="white")
+
+
+decode()
+VIETQR_FORM.get_subtag_value("38", "00")

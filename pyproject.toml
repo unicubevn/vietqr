@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=40.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "vietqr-generator"
-version = "0.0.4"
+version = "0.0.6"
 authors = [
     { name="Jean Nguyen", email="community@unicube.me" },
 ]
